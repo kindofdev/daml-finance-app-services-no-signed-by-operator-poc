@@ -1,0 +1,24 @@
+module Workflow.Custody.Model where
+
+import Daml.Finance.Interface.Account.Account qualified as Account (Controllers)
+import Daml.Finance.Interface.Types.Common.Types (AccountKey, Id, InstrumentQuantity, PartiesMap)
+
+template OpenAccountRequest
+  with
+    provider : Party
+    customer : Party
+    id : Id
+    description : Text
+    controllers : Account.Controllers
+    observers : PartiesMap
+  where
+    signatory provider, customer
+
+template DepositRequest
+  with
+    provider : Party
+    customer : Party
+    quantity : InstrumentQuantity
+    account : AccountKey
+  where
+    signatory provider, customer

@@ -1,0 +1,22 @@
+module Scripts.Util.Instrument where
+
+import Daml.Script
+
+import Daml.Finance.Instrument.Token.Instrument qualified as Token (Instrument(..))
+import Daml.Finance.Interface.Instrument.Base.Instrument qualified as Instrument
+  ( GetView(..), I, Reference(..) )
+import Daml.Finance.Interface.Types.Common.Types
+  ( Id(..), InstrumentKey, PartiesMap )
+
+originateToken : Party -> Party -> PartiesMap -> Time -> Text -> Text -> Script InstrumentKey
+originateToken depository issuer observers validAsOf id description = do
+  cid <- coerceContractId <$> submitMulti [depository, issuer] [] do
+    createCmd Token.Instrument with depository; issuer; id = Id id; version = "0"; observers; validAsOf; description
+  createReference cid depository issuer observers
+
+createReference : ContractId Instrument.I -> Party -> Party -> PartiesMap -> Script InstrumentKey
+createReference cid depository issuer observers = do
+  instrumentView <- submitMulti [depository, issuer] [] do exerciseCmd cid Instrument.GetView with viewer = issuer
+  let ref = Instrument.Reference with instrumentView; cid; observers
+  submitMulti [depository, issuer] [] do createCmd ref
+  pure $ key ref

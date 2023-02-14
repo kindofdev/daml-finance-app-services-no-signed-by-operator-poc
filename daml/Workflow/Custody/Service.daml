@@ -1,0 +1,132 @@
+module Workflow.Custody.Service where
+
+import Daml.Finance.Interface.Account.Account qualified as Account (Controllers, Credit(..), R)
+import Daml.Finance.Interface.Account.Factory qualified as Account (F, Create(..))
+import Daml.Finance.Interface.Holding.Factory qualified as Holding (F)
+import Daml.Finance.Interface.Holding.Base qualified as Holding (I)
+import Daml.Finance.Interface.Types.Common.Types
+  ( AccountKey(..), Id, InstrumentQuantity, PartiesMap )
+
+import Workflow.Custody.Model qualified as Custody
+import Workflow.Role.Custodian qualified as Custodian
+import Workflow.Util (fetchAndArchive)
+
+template Service
+  with
+    operator : Party
+    provider : Party
+    customer : Party
+    accountFactoryCid : ContractId Account.F
+    holdingFactoryCid : ContractId Holding.F
+  where
+    signatory provider, customer
+    observer operator
+
+    key (provider, customer) : (Party, Party)
+    maintainer key._1
+
+    nonconsuming choice RequestOpenAccount : ContractId Custody.OpenAccountRequest
+      with
+        id : Id
+        description : Text
+        controllers : Account.Controllers
+        observers : PartiesMap
+      controller customer
+      do
+        create Custody.OpenAccountRequest with ..
+
+    nonconsuming choice OpenAccount : AccountKey
+      with
+        openAccountRequestCid : ContractId Custody.OpenAccountRequest
+      controller provider
+      do
+        fetchByKey @Custodian.Role (operator, provider)
+
+        Custody.OpenAccountRequest{id; description; controllers; observers} <-
+          fetchAndArchive openAccountRequestCid
+        let account = AccountKey with custodian = provider; owner = customer; id
+        exercise accountFactoryCid Account.Create with
+          account
+          description
+          controllers
+          holdingFactoryCid
+          observers
+
+        pure account
+
+    nonconsuming choice RequestDeposit : ContractId Custody.DepositRequest
+      with
+        quantity : InstrumentQuantity
+        account : AccountKey
+      controller customer
+      do
+        create Custody.DepositRequest with ..
+
+    nonconsuming choice Deposit : ContractId Holding.I
+      with
+        depositRequestCid : ContractId Custody.DepositRequest
+      controller provider
+      do
+        fetchByKey @Custodian.Role (operator, provider)
+        Custody.DepositRequest{quantity; account} <- fetchAndArchive depositRequestCid
+        (_, ref) <- fetchByKey @Account.R account
+        exercise ref.cid Account.Credit with quantity
+
+    choice Terminate : ()
+      with
+        actor : Party
+      controller actor
+      do
+        assert $ actor == operator || actor == provider || actor == customer
+        pure ()
+
+template Offer
+  with
+    operator : Party
+    provider : Party
+    customer : Party
+    accountFactoryCid : ContractId Account.F
+    holdingFactoryCid : ContractId Holding.F
+  where
+    signatory provider
+    observer customer
+
+    choice Accept : ContractId Service
+      controller customer
+      do
+        fetchByKey @Custodian.Role (operator, provider)
+        create Service with operator; provider; customer; accountFactoryCid; holdingFactoryCid
+
+    choice Decline : ()
+      controller customer
+      do pure ()
+
+    choice Withdraw : ()
+      controller provider
+      do pure ()
+
+template Request
+  with
+    customer : Party
+    provider : Party
+    operator : Party
+  where
+    signatory customer
+    observer provider
+
+    choice Cancel : ()
+      controller customer
+      do pure ()
+
+    choice Reject : ()
+      controller provider
+      do pure ()
+
+    choice Approve : ContractId Service
+      with
+        accountFactoryCid : ContractId Account.F
+        holdingFactoryCid : ContractId Holding.F
+      controller provider
+      do
+        fetchByKey @Custodian.Role (operator, provider)
+        create Service with operator; provider; customer; accountFactoryCid; holdingFactoryCid

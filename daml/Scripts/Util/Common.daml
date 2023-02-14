@@ -1,0 +1,20 @@
+module Scripts.Util.Common where
+
+import Daml.Script
+
+data StdParties = StdParties
+  with
+    operator : Party
+    custodian : Party
+    alice : Party
+    public : Party
+  deriving (Eq, Ord, Show)
+
+createParty : Text -> Script Party
+createParty name = allocatePartyWithHint name $ PartyIdHint name
+
+allocateParties : Script StdParties
+allocateParties = do
+  [public, operator, custodian, alice] <- mapA createParty
+    [ "PublicParty", "Operator", "Custodian", "Alice"]
+  pure StdParties with ..

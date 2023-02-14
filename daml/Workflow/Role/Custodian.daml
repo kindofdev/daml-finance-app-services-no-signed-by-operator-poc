@@ -1,0 +1,56 @@
+module Workflow.Role.Custodian where
+
+template Role
+  with
+    operator : Party
+    provider : Party
+    public : Party
+  where
+    signatory operator, provider
+    observer public
+
+    key (operator, provider) : (Party, Party)
+    maintainer key._1
+
+    choice TerminateRole: ()
+      controller operator
+      do
+        return ()
+
+template Offer
+  with
+    operator : Party
+    provider : Party
+    public : Party
+  where
+    signatory operator
+    observer provider
+
+    choice Accept : ContractId Role
+      controller provider
+      do
+        create Role with ..
+
+    choice Decline : ()
+      controller provider
+      do
+        return ()
+
+template Request
+  with
+    provider : Party
+    operator : Party
+    public : Party
+  where
+    signatory provider
+    observer operator
+
+    choice Approve : ContractId Role
+      controller operator
+      do
+        create Role with ..
+
+    choice Reject : ()
+      controller operator
+      do
+        return ()

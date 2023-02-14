@@ -1,0 +1,34 @@
+module Scripts.Util.Role where
+
+import Daml.Script
+
+import Workflow.Role.Operator qualified as Operator
+  ( ApproveCustodianRequest(..), OfferCustodianRole(..), Role(..) )
+import Workflow.Role.Custodian qualified as Custodian
+  ( Accept(..), Request(..), Role, TerminateRole(..) )
+
+createOperatorRole : Party -> Party -> Script (ContractId Operator.Role)
+createOperatorRole operator public = do
+  submit operator do createCmd Operator.Role with ..
+
+createCustodianRoleWithOffer : Party -> Party -> Party -> Script (ContractId Custodian.Role)
+createCustodianRoleWithOffer operator custodian public = do
+  offerCid <- submit operator do
+    exerciseByKeyCmd @Operator.Role operator Operator.OfferCustodianRole with
+      provider = custodian
+      ..
+  submit custodian do exerciseCmd offerCid Custodian.Accept
+
+createCustodianRoleWithRequest : Party -> Party -> Party -> Script (ContractId Custodian.Role)
+createCustodianRoleWithRequest operator custodian public = do
+  custodianRequestCid <- submit custodian do
+    createCmd Custodian.Request with
+      provider = custodian
+      ..
+  submit operator do
+    exerciseByKeyCmd @Operator.Role operator Operator.ApproveCustodianRequest with ..
+
+terminateCustodianRole : Party -> Party -> Script ()
+terminateCustodianRole operator custodian =
+  submit operator do
+    exerciseByKeyCmd @Custodian.Role (operator, custodian) Custodian.TerminateRole

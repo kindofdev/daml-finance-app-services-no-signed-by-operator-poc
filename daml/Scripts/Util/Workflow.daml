@@ -1,0 +1,38 @@
+module Scripts.Util.Workflow where
+
+import DA.Set qualified as Set (singleton)
+import Daml.Script
+
+import Daml.Finance.Interface.Account.Account qualified as Account (Controllers(..))
+import Daml.Finance.Interface.Holding.Base qualified as Holding (I)
+import Daml.Finance.Interface.Types.Common.Types (AccountKey, Id(..), InstrumentQuantity, PartiesMap)
+
+import Workflow.Custody.Service qualified as Custody
+
+createAccount : Party -> Party -> Party -> Party -> Text -> PartiesMap -> Script AccountKey
+createAccount operator custodian owner public id observers = do
+  let controllers = Account.Controllers with outgoing = Set.singleton owner; incoming = Set.singleton owner
+
+  openAccountRequestCid <- submit owner do
+    exerciseByKeyCmd @Custody.Service (custodian, owner) Custody.RequestOpenAccount with
+      id = Id id
+      description = id
+      controllers
+      observers
+
+  submitMulti [custodian] [public] do
+    exerciseByKeyCmd @Custody.Service (custodian, owner) Custody.OpenAccount with
+      openAccountRequestCid
+
+deposit
+  : Party -> Party -> Party -> Party
+  -> InstrumentQuantity -> AccountKey -> Script (ContractId Holding.I)
+deposit operator provider customer public quantity account = do
+  depositRequestCid <- submit customer do
+    exerciseByKeyCmd @Custody.Service (provider, customer) Custody.RequestDeposit with
+      quantity
+      account
+
+  submitMulti [provider] [public] do
+    exerciseByKeyCmd @Custody.Service (provider, customer) Custody.Deposit with depositRequestCid
+

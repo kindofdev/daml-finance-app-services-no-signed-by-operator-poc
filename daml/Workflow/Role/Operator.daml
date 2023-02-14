@@ -1,0 +1,27 @@
+module Workflow.Role.Operator where
+
+import Workflow.Role.Custodian qualified as Custodian (Approve(..), Offer(..), Request, Role)
+
+template Role
+  with
+    operator : Party
+  where
+    signatory operator
+
+    key operator : Party
+    maintainer key
+
+    nonconsuming choice OfferCustodianRole : ContractId Custodian.Offer
+      with
+        provider : Party
+        public : Party
+      controller operator
+      do
+        create Custodian.Offer with ..
+
+    nonconsuming choice ApproveCustodianRequest : ContractId Custodian.Role
+      with
+        custodianRequestCid : ContractId Custodian.Request
+      controller operator
+      do
+        exercise custodianRequestCid Custodian.Approve
