@@ -40,8 +40,6 @@ template Service
         openAccountRequestCid : ContractId Custody.OpenAccountRequest
       controller provider
       do
-        fetchByKey @Custodian.Role (operator, provider)
-
         Custody.OpenAccountRequest{id; description; controllers; observers} <-
           fetchAndArchive openAccountRequestCid
         let account = AccountKey with custodian = provider; owner = customer; id
@@ -67,7 +65,6 @@ template Service
         depositRequestCid : ContractId Custody.DepositRequest
       controller provider
       do
-        fetchByKey @Custodian.Role (operator, provider)
         Custody.DepositRequest{quantity; account} <- fetchAndArchive depositRequestCid
         (_, ref) <- fetchByKey @Account.R account
         exercise ref.cid Account.Credit with quantity

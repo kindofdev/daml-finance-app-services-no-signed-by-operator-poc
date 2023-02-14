@@ -32,28 +32,16 @@ aliceCanDeposit = setup >>= \Setup{..} -> do
   aliceHoldingView <- submit alice do exerciseCmd aliceHoldingCid Holding.GetView with viewer = alice
   aliceHoldingView === Holding.View usdKey aliceAccountKey 100.0 None
 
-aliceCannotDepositAfetrOperatorTerminatesService : Script ()
-aliceCannotDepositAfetrOperatorTerminatesService = setup >>= \Setup{..} -> do
-  terminateCustodyService custodian alice operator
+aliceCannotDepositAfterOperatorTerminatesService : Script ()
+aliceCannotDepositAfterOperatorTerminatesService = setup >>= \Setup{..} -> do
+  terminateCustodianRole operator custodian
+  terminateCustodyServices operator custodian
 
   let quantity = Quantity usdKey 100.0
   submitMustFail alice do
     exerciseByKeyCmd @Custody.Service (custodian, alice) Custody.RequestDeposit with
       quantity
       account = aliceAccountKey
-
-aliceCannotDepositAfetrOperatorTerminatesRole : Script ()
-aliceCannotDepositAfetrOperatorTerminatesRole = setup >>= \Setup{..} -> do
-  terminateCustodianRole operator custodian
-
-  let quantity = Quantity usdKey 100.0
-  depositRequestCid <- submit alice do
-    exerciseByKeyCmd @Custody.Service (custodian, alice) Custody.RequestDeposit with
-      quantity
-      account = aliceAccountKey
-
-  submitMultiMustFail [custodian] [public] do
-    exerciseByKeyCmd @Custody.Service (custodian, alice) Custody.Deposit with depositRequestCid
 
 data Setup = Setup
   with

@@ -1,6 +1,7 @@
 module Scripts.Util.Service where
 
 import Daml.Script
+import DA.Foldable
 
 import Daml.Finance.Interface.Account.Factory qualified as Account (F)
 import Daml.Finance.Interface.Holding.Factory qualified as Holding (F)
@@ -24,3 +25,10 @@ createCustodyServiceWithOffer operator provider customer accountFactoryCid holdi
 terminateCustodyService : Party -> Party -> Party -> Script ()
 terminateCustodyService custodian owner actor = do
   submit actor do exerciseByKeyCmd @Custody.Service (custodian, owner) Custody.Terminate with ..
+
+terminateCustodyServices : Party -> Party -> Script ()
+terminateCustodyServices operator custodian = do
+  servicesCid <- fmap fst <$>
+    queryFilter @Custody.Service operator (\service -> service.provider == custodian)
+  forA_ servicesCid $ \cid -> submit operator do
+    exerciseCmd cid Custody.Terminate with actor = operator
