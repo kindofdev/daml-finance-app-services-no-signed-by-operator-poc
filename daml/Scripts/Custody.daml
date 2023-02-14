@@ -32,8 +32,8 @@ aliceCanDeposit = setup >>= \Setup{..} -> do
   aliceHoldingView <- submit alice do exerciseCmd aliceHoldingCid Holding.GetView with viewer = alice
   aliceHoldingView === Holding.View usdKey aliceAccountKey 100.0 None
 
-aliceCannotDepositAfterOperatorTerminatesService : Script ()
-aliceCannotDepositAfterOperatorTerminatesService = setup >>= \Setup{..} -> do
+aliceCannotDepositAfterOperatorTerminatesServicesForCustodian : Script ()
+aliceCannotDepositAfterOperatorTerminatesServicesForCustodian = setup >>= \Setup{..} -> do
   terminateCustodianRole operator custodian
   terminateCustodyServices operator custodian
 
